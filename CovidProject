@@ -1,0 +1,144 @@
+--- Select data that we are going to be using 
+SELECT 
+  location, date, total_cases, new_cases, total_deaths, population
+FROM `my-project-414320.PortfolioProject.Deaths` 
+ORDER BY
+  1,2;
+
+-- Total Cases vs. Total Deaths
+-- Shows likelihood of dying if you contract COVID in your country 
+SELECT 
+  location, date, total_cases, total_deaths,(total_deaths/total_cases)*100 AS DeathPercentage
+FROM `my-project-414320.PortfolioProject.Deaths` 
+ORDER BY
+  1,2;
+
+-- Total Cases vs. Population (United States)\
+-- Percent of population that has got COVID 
+SELECT 
+  location, date, total_cases, population, (total_cases/population)*100 AS CasesPercentage
+FROM `my-project-414320.PortfolioProject.Deaths` 
+WHERE 
+  location LIKE '%States%'
+ORDER BY
+  1,2;
+
+-- Countries with highest infection rate compared to population 
+
+SELECT 
+  location, population, MAX(total_cases) as HighestInfectionCount, MAX((total_cases/population))*100 AS PercentPopulationInfected
+FROM `my-project-414320.PortfolioProject.Deaths` 
+GROUP BY
+  location, population
+ORDER BY
+  PercentPopulationInfected DESC;
+
+-- Countries with highest death count per population
+
+SELECT 
+  location, MAX(cast(total_deaths AS int)) as TotalDeathCount
+FROM `my-project-414320.PortfolioProject.Deaths` 
+WHERE 
+  continent IS NOT NULL
+GROUP BY
+  location
+ORDER BY
+  TotalDeathCount DESC;
+
+-- Continents with highest death count 
+-- Starting to break things down by continent 
+
+SELECT 
+  continent, MAX(cast(total_deaths AS int)) as TotalDeathCount
+FROM `my-project-414320.PortfolioProject.Deaths` 
+WHERE 
+  continent IS NOT NULL
+GROUP BY
+  continent
+ORDER BY
+  TotalDeathCount DESC;
+
+-- Global numbers by day 
+
+SELECT 
+  date, SUM(new_cases) AS total_cases,SUM(cast(new_deaths AS int)) AS total_deaths,SUM(cast(new_deaths AS int))/SUM(new_cases)*100 AS death_percentage
+FROM `my-project-414320.PortfolioProject.Deaths` 
+WHERE 
+  continent IS NOT NULL
+GROUP BY 
+  date
+ORDER BY
+  1,2;
+
+-- Total Population vs. Total Vaccinations 
+
+SELECT
+  dea.continent, dea.location, dea.date, dea.population, vac.new_vaccinations, SUM(cast(vac.new_vaccinations as INT)) OVER (Partition by dea.Location ORDER BY dea.location, dea.date) AS rolling_people_vaccinated  
+FROM 
+  `my-project-414320.PortfolioProject.Vaccinations ` AS vac 
+INNER JOIN 
+  `my-project-414320.PortfolioProject.Deaths` AS dea
+  ON dea.location = vac.location 
+  AND dea.date = vac.date
+WHERE 
+  dea.continent IS NOT NULL
+ORDER BY 
+  2,3;
+
+-- CTE 
+
+WITH PopvsVac AS
+(SELECT
+  dea.continent, dea.location, dea.date, dea.population, vac.new_vaccinations, SUM(cast(vac.new_vaccinations as INT)) OVER (Partition by dea.Location ORDER BY dea.location, dea.date) AS rolling_people_vaccinated  
+FROM 
+  `my-project-414320.PortfolioProject.Vaccinations ` AS vac 
+INNER JOIN 
+  `my-project-414320.PortfolioProject.Deaths` AS dea
+  ON dea.location = vac.location 
+  AND dea.date = vac.date
+WHERE 
+  dea.continent IS NOT NULL
+  )
+SELECT *, (rolling_people_vaccinated/population)*100
+FROM PopvsVac;
+
+-- Temp Table 
+
+CREATE OR REPLACE TABLE PortfolioProject.TempPercentPopulationVaccinated AS 
+SELECT 
+  dea.continent, 
+  dea.location, 
+  dea.date, 
+  dea.population, 
+  vac.new_vaccinations, 
+  SUM(cast(vac.new_vaccinations as INT)) OVER (Partition by dea.Location ORDER BY dea.location, dea.date) AS rolling_people_vaccinated  
+FROM 
+  `my-project-414320.PortfolioProject.Vaccinations ` AS vac 
+INNER JOIN 
+  `my-project-414320.PortfolioProject.Deaths` AS dea
+  ON dea.location = vac.location 
+  AND dea.date = vac.date
+WHERE 
+  dea.continent IS NOT NULL;
+  
+SELECT *, (rolling_people_vaccinated/population)*100
+FROM PortfolioProject.TempPercentPopulationVaccinated;
+
+-- Creating View to Store Data for Later Visulizations 
+
+Create View PortfolioProject.PercentPopulationVaccinatedView
+AS 
+SELECT
+  dea.continent, dea.location, dea.date, dea.population, vac.new_vaccinations, SUM(cast(vac.new_vaccinations as INT)) OVER (Partition by dea.Location ORDER BY dea.location, dea.date) AS rolling_people_vaccinated  
+FROM 
+  `my-project-414320.PortfolioProject.Vaccinations ` AS vac 
+INNER JOIN 
+  `my-project-414320.PortfolioProject.Deaths` AS dea
+  ON dea.location = vac.location 
+  AND dea.date = vac.date
+WHERE 
+  dea.continent IS NOT NULL; 
+
+
+
+
